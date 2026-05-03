@@ -15,9 +15,14 @@ app = Flask(__name__)
 
 # Configuração do Banco de Dados
 db_path = os.path.join(os.path.dirname(__file__), "database.db")
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    # Render usa DATABASE_URL no formato postgres://, que deve ser convertido para SQLAlchemy
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    else:
+        app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 # Configurações JWT
 app.config["JWT_SECRET_KEY"] = "super-secret-key-change-in-production"
 
