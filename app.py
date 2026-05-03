@@ -5,35 +5,144 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-import uuid
+from datetime import datetime
+import os
 
+# Inicializar Flask
 app = Flask(__name__)
+
+# Configuração do Banco de Dados
+db_path = os.path.join(os.path.dirname(__file__), "database.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Configurações JWT
 app.config["JWT_SECRET_KEY"] = "super-secret-key-change-in-production"
+
+# Inicializar extensões
+db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
-# Banco de dados em memória
-users_db = {}
-alunos_db = {}
-tarefas_db = {}
+# ========== MODELS ==========
 
-# Função para criar admin automaticamente
-def criar_admin():
-    if "admin" not in users_db:
-        users_db["admin"] = {
-            "id": str(uuid.uuid4()),
-            "password": generate_password_hash("admin123"),
-            "email": "admin@example.com",
-            "role": "admin"
+class User(db.Model):
+    __tablename__ = "users"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default="aluno", nullable=False)  # admin, aluno
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "role": self.role,
+            "criado_em": self.criado_em.isoformat()
         }
+
+
+class Aluno(db.Model):
+    __tablename__ = "alunos"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    matricula = db.Column(db.String(50), unique=True, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamento com tarefas
+    tarefas = db.relationship("Tarefa", backref="aluno", lazy=True, cascade="all, delete-orphan")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "email": self.email,
+            "matricula": self.matricula,
+            "criado_em": self.criado_em.isoformat()
+        }
+
+
+class Tarefa(db.Model):
+    __tablename__ = "tarefas"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(120), nullable=False)
+    descricao = db.Column(db.Text, default="")
+    aluno_id = db.Column(db.Integer, db.ForeignKey("alunos.id"), nullable=False)
+    completa = db.Column(db.Boolean, default=False)
+    criada_em = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "titulo": self.titulo,
+            "descricao": self.descricao,
+            "aluno_id": self.aluno_id,
+            "completa": self.completa,
+            "criada_em": self.criada_em.isoformat()
+        }
+
+
+# ========== INICIALIZAÇÃO ==========
+
+def criar_admin():
+    """Cria usuário admin automaticamente se não existir"""
+    admin_existe = User.query.filter_by(username="admin").first()
+    if not admin_existe:
+        admin = User(
+            username="admin",
+            email="admin@example.com",
+            role="admin"
+        )
+        admin.set_password("admin123")
+        db.session.add(admin)
+        db.session.commit()
         print("✓ Admin criado automaticamente (username: admin, password: admin123)")
 
-# Criar admin ao iniciar
-criar_admin()
 
-# --- Rotas de Autenticação ---
+# ========== ROTAS DE AUTENTICAÇÃO ==========
+
+@app.route("/signup", methods=["POST"])
+def signup():
+    """Cria uma nova conta (usuário comum com role 'aluno')"""
+    data = request.get_json()
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    
+    if not username or not email or not password:
+        return jsonify({"error": "Dados incompletos"}), 400
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username já existe"}), 409
+    
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email já existe"}), 409
+    
+    user = User(username=username, email=email, role="aluno")
+    user.set_password(password)
+    
+    db.session.add(user)
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Conta criada com sucesso",
+        "user": user.to_dict()
+    }), 201
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -42,53 +151,37 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    user = users_db.get(username)
-    if not user or not check_password_hash(user["password"], password):
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
         return jsonify({"error": "Credenciais inválidas"}), 401
 
     access_token = create_access_token(identity=username)
     return jsonify({
         "access_token": access_token,
-        "user": {
-            "username": username,
-            "email": user["email"],
-            "role": user.get("role", "usuario")
-        }
+        "user": user.to_dict()
     }), 200
 
 
-# --- Rotas de Alunos (CRUD) ---
+
+# ========== ROTAS DE ALUNOS (CRUD) ==========
 
 @app.route("/alunos", methods=["GET"])
 @jwt_required()
 def listar_alunos():
     """Lista todos os alunos"""
-    alunos = [
-        {
-            "id": aluno["id"],
-            "nome": aluno["nome"],
-            "email": aluno["email"],
-            "matricula": aluno["matricula"]
-        }
-        for aluno in alunos_db.values()
-    ]
-    return jsonify(alunos), 200
+    alunos = Aluno.query.all()
+    return jsonify([aluno.to_dict() for aluno in alunos]), 200
 
 
-@app.route("/alunos/<aluno_id>", methods=["GET"])
+@app.route("/alunos/<int:aluno_id>", methods=["GET"])
 @jwt_required()
 def obter_aluno(aluno_id):
     """Obtém um aluno específico"""
-    aluno = alunos_db.get(aluno_id)
+    aluno = Aluno.query.get(aluno_id)
     if not aluno:
         return jsonify({"error": "Aluno não encontrado"}), 404
-
-    return jsonify({
-        "id": aluno["id"],
-        "nome": aluno["nome"],
-        "email": aluno["email"],
-        "matricula": aluno["matricula"]
-    }), 200
+    
+    return jsonify(aluno.to_dict()), 200
 
 
 @app.route("/alunos", methods=["POST"])
@@ -96,115 +189,102 @@ def obter_aluno(aluno_id):
 def criar_aluno():
     """Cria um novo aluno - apenas admin"""
     current_user = get_jwt_identity()
-    user = users_db.get(current_user)
-
-    if user.get("role") != "admin":
+    user = User.query.filter_by(username=current_user).first()
+    
+    if user.role != "admin":
         return jsonify({"error": "Apenas admin pode criar alunos"}), 403
-
+    
     data = request.get_json()
     nome = data.get("nome")
     email = data.get("email")
     matricula = data.get("matricula")
-
+    
     if not nome or not email or not matricula:
         return jsonify({"error": "Dados incompletos"}), 400
-
-    aluno_id = str(uuid.uuid4())
-    alunos_db[aluno_id] = {
-        "id": aluno_id,
-        "nome": nome,
-        "email": email,
-        "matricula": matricula
-    }
-
+    
+    if Aluno.query.filter_by(email=email).first():
+        return jsonify({"error": "Email já existe"}), 409
+    
+    if Aluno.query.filter_by(matricula=matricula).first():
+        return jsonify({"error": "Matrícula já existe"}), 409
+    
+    aluno = Aluno(nome=nome, email=email, matricula=matricula)
+    db.session.add(aluno)
+    db.session.commit()
+    
     return jsonify({
         "message": "Aluno criado com sucesso",
-        "id": aluno_id
+        "aluno": aluno.to_dict()
     }), 201
 
 
-@app.route("/alunos/<aluno_id>", methods=["PUT"])
+@app.route("/alunos/<int:aluno_id>", methods=["PUT"])
 @jwt_required()
 def atualizar_aluno(aluno_id):
     """Atualiza um aluno - apenas admin"""
     current_user = get_jwt_identity()
-    user = users_db.get(current_user)
-
-    if user.get("role") != "admin":
+    user = User.query.filter_by(username=current_user).first()
+    
+    if user.role != "admin":
         return jsonify({"error": "Apenas admin pode atualizar alunos"}), 403
-
-    if aluno_id not in alunos_db:
+    
+    aluno = Aluno.query.get(aluno_id)
+    if not aluno:
         return jsonify({"error": "Aluno não encontrado"}), 404
-
+    
     data = request.get_json()
+    
     if "nome" in data:
-        alunos_db[aluno_id]["nome"] = data["nome"]
+        aluno.nome = data["nome"]
     if "email" in data:
-        alunos_db[aluno_id]["email"] = data["email"]
+        aluno.email = data["email"]
     if "matricula" in data:
-        alunos_db[aluno_id]["matricula"] = data["matricula"]
+        aluno.matricula = data["matricula"]
+    
+    db.session.commit()
+    
+    return jsonify({"message": "Aluno atualizado com sucesso", "aluno": aluno.to_dict()}), 200
 
-    return jsonify({"message": "Aluno atualizado com sucesso"}), 200
 
-
-@app.route("/alunos/<aluno_id>", methods=["DELETE"])
+@app.route("/alunos/<int:aluno_id>", methods=["DELETE"])
 @jwt_required()
 def deletar_aluno(aluno_id):
     """Deleta um aluno - apenas admin"""
     current_user = get_jwt_identity()
-    user = users_db.get(current_user)
-
-    if user.get("role") != "admin":
+    user = User.query.filter_by(username=current_user).first()
+    
+    if user.role != "admin":
         return jsonify({"error": "Apenas admin pode deletar alunos"}), 403
-
-    if aluno_id not in alunos_db:
+    
+    aluno = Aluno.query.get(aluno_id)
+    if not aluno:
         return jsonify({"error": "Aluno não encontrado"}), 404
-
-    del alunos_db[aluno_id]
-    # Deletar tarefas do aluno
-    tarefas_para_deletar = [t_id for t_id, t in tarefas_db.items() if t["aluno_id"] == aluno_id]
-    for t_id in tarefas_para_deletar:
-        del tarefas_db[t_id]
-
+    
+    db.session.delete(aluno)
+    db.session.commit()
+    
     return jsonify({"message": "Aluno deletado com sucesso"}), 200
 
 
-# --- Rotas de Tarefas (CRUD) ---
+# ========== ROTAS DE TAREFAS (CRUD) ==========
 
 @app.route("/tarefas", methods=["GET"])
 @jwt_required()
 def listar_tarefas():
     """Lista todas as tarefas"""
-    tarefas = [
-        {
-            "id": tarefa["id"],
-            "titulo": tarefa["titulo"],
-            "descricao": tarefa["descricao"],
-            "aluno_id": tarefa["aluno_id"],
-            "completa": tarefa["completa"],
-            "criada_em": tarefa["criada_em"]
-        }
-        for tarefa in tarefas_db.values()
-    ]
-    return jsonify(tarefas), 200
+    tarefas = Tarefa.query.all()
+    return jsonify([tarefa.to_dict() for tarefa in tarefas]), 200
 
 
-@app.route("/tarefas/<tarefa_id>", methods=["GET"])
+@app.route("/tarefas/<int:tarefa_id>", methods=["GET"])
 @jwt_required()
 def obter_tarefa(tarefa_id):
     """Obtém uma tarefa específica"""
-    tarefa = tarefas_db.get(tarefa_id)
+    tarefa = Tarefa.query.get(tarefa_id)
     if not tarefa:
         return jsonify({"error": "Tarefa não encontrada"}), 404
-
-    return jsonify({
-        "id": tarefa["id"],
-        "titulo": tarefa["titulo"],
-        "descricao": tarefa["descricao"],
-        "aluno_id": tarefa["aluno_id"],
-        "completa": tarefa["completa"],
-        "criada_em": tarefa["criada_em"]
-    }), 200
+    
+    return jsonify(tarefa.to_dict()), 200
 
 
 @app.route("/tarefas", methods=["POST"])
@@ -212,107 +292,105 @@ def obter_tarefa(tarefa_id):
 def criar_tarefa():
     """Cria uma nova tarefa - apenas admin"""
     current_user = get_jwt_identity()
-    user = users_db.get(current_user)
-
-    if user.get("role") != "admin":
+    user = User.query.filter_by(username=current_user).first()
+    
+    if user.role != "admin":
         return jsonify({"error": "Apenas admin pode criar tarefas"}), 403
-
+    
     data = request.get_json()
     titulo = data.get("titulo")
-    descricao = data.get("descricao")
+    descricao = data.get("descricao", "")
     aluno_id = data.get("aluno_id")
-
+    
     if not titulo or not aluno_id:
         return jsonify({"error": "Dados incompletos"}), 400
-
-    if aluno_id not in alunos_db:
+    
+    aluno = Aluno.query.get(aluno_id)
+    if not aluno:
         return jsonify({"error": "Aluno não encontrado"}), 404
-
-    tarefa_id = str(uuid.uuid4())
-    from datetime import datetime
-    tarefas_db[tarefa_id] = {
-        "id": tarefa_id,
-        "titulo": titulo,
-        "descricao": descricao or "",
-        "aluno_id": aluno_id,
-        "completa": False,
-        "criada_em": datetime.now().isoformat()
-    }
-
+    
+    tarefa = Tarefa(titulo=titulo, descricao=descricao, aluno_id=aluno_id)
+    db.session.add(tarefa)
+    db.session.commit()
+    
     return jsonify({
         "message": "Tarefa criada com sucesso",
-        "id": tarefa_id
+        "tarefa": tarefa.to_dict()
     }), 201
 
 
-@app.route("/tarefas/<tarefa_id>", methods=["PUT"])
+@app.route("/tarefas/<int:tarefa_id>", methods=["PUT"])
 @jwt_required()
 def atualizar_tarefa(tarefa_id):
     """Atualiza uma tarefa - apenas admin"""
     current_user = get_jwt_identity()
-    user = users_db.get(current_user)
-
-    if user.get("role") != "admin":
+    user = User.query.filter_by(username=current_user).first()
+    
+    if user.role != "admin":
         return jsonify({"error": "Apenas admin pode atualizar tarefas"}), 403
-
-    if tarefa_id not in tarefas_db:
-        return jsonify({"error": "Tarefa não encontrado"}), 404
-
+    
+    tarefa = Tarefa.query.get(tarefa_id)
+    if not tarefa:
+        return jsonify({"error": "Tarefa não encontrada"}), 404
+    
     data = request.get_json()
+    
     if "titulo" in data:
-        tarefas_db[tarefa_id]["titulo"] = data["titulo"]
+        tarefa.titulo = data["titulo"]
     if "descricao" in data:
-        tarefas_db[tarefa_id]["descricao"] = data["descricao"]
+        tarefa.descricao = data["descricao"]
     if "completa" in data:
-        tarefas_db[tarefa_id]["completa"] = data["completa"]
+        tarefa.completa = data["completa"]
+    
+    db.session.commit()
+    
+    return jsonify({"message": "Tarefa atualizada com sucesso", "tarefa": tarefa.to_dict()}), 200
 
-    return jsonify({"message": "Tarefa atualizada com sucesso"}), 200
 
-
-@app.route("/tarefas/<tarefa_id>", methods=["DELETE"])
+@app.route("/tarefas/<int:tarefa_id>", methods=["DELETE"])
 @jwt_required()
 def deletar_tarefa(tarefa_id):
     """Deleta uma tarefa - apenas admin"""
     current_user = get_jwt_identity()
-    user = users_db.get(current_user)
-
-    if user.get("role") != "admin":
+    user = User.query.filter_by(username=current_user).first()
+    
+    if user.role != "admin":
         return jsonify({"error": "Apenas admin pode deletar tarefas"}), 403
-
-    if tarefa_id not in tarefas_db:
+    
+    tarefa = Tarefa.query.get(tarefa_id)
+    if not tarefa:
         return jsonify({"error": "Tarefa não encontrada"}), 404
-
-    del tarefas_db[tarefa_id]
+    
+    db.session.delete(tarefa)
+    db.session.commit()
+    
     return jsonify({"message": "Tarefa deletada com sucesso"}), 200
 
 
-@app.route("/alunos/<aluno_id>/tarefas", methods=["GET"])
+@app.route("/alunos/<int:aluno_id>/tarefas", methods=["GET"])
 @jwt_required()
 def listar_tarefas_aluno(aluno_id):
     """Lista tarefas de um aluno específico"""
-    if aluno_id not in alunos_db:
+    aluno = Aluno.query.get(aluno_id)
+    if not aluno:
         return jsonify({"error": "Aluno não encontrado"}), 404
-
-    tarefas = [
-        {
-            "id": tarefa["id"],
-            "titulo": tarefa["titulo"],
-            "descricao": tarefa["descricao"],
-            "completa": tarefa["completa"],
-            "criada_em": tarefa["criada_em"]
-        }
-        for tarefa in tarefas_db.values()
-        if tarefa["aluno_id"] == aluno_id
-    ]
-    return jsonify(tarefas), 200
+    
+    tarefas = Tarefa.query.filter_by(aluno_id=aluno_id).all()
+    return jsonify([tarefa.to_dict() for tarefa in tarefas]), 200
 
 
-# --- Rota de Health Check ---
+# ========== ROTA DE HEALTH CHECK ==========
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200
 
 
+# ========== INICIALIZAÇÃO DO BANCO ==========
+
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
+        criar_admin()
+    
     app.run(debug=True, port=5000)

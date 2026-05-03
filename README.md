@@ -1,6 +1,6 @@
 # Mini Projeto - Gestão de Alunos e Tarefas
 
-API REST Flask com autenticação JWT, CRUD de alunos e tarefas.
+API REST Flask com autenticação JWT, SQLAlchemy ORM, CRUD de alunos e tarefas.
 
 ## Instalação
 
@@ -16,23 +16,44 @@ python app.py
 
 A API estará disponível em `http://localhost:5000`
 
+### Banco de Dados
+- **SQLite** para desenvolvimento local (`database.db`)
+- **PostgreSQL** para produção (configurar variável de ambiente `DATABASE_URL`)
+
 ### Admin Automático
 - **Username:** `admin`
 - **Password:** `admin123`
+- Criado automaticamente na primeira execução
 
 ---
 
 ## Endpoints
 
 ### Health Check
-```bash
+```
 GET /health
 ```
 
-### Autenticação
+---
 
-#### Login
-```bash
+## 🔐 Autenticação
+
+### Signup - Criar Conta (Público)
+```
+POST /signup
+Content-Type: application/json
+
+{
+  "username": "usuario1",
+  "email": "usuario@example.com",
+  "password": "senha123"
+}
+```
+- Cria usuário com role `aluno`
+- Retorna: `201 Created` ou `409 Conflict` se email/username já existe
+
+### Login
+```
 POST /login
 Content-Type: application/json
 
@@ -41,25 +62,27 @@ Content-Type: application/json
   "password": "admin123"
 }
 ```
+- Retorna token JWT e informações do usuário
+- Use o token no header: `Authorization: Bearer {token}`
 
 ---
 
-### Alunos (Requer JWT)
+## 👥 Alunos (Requer JWT - Admin)
 
-#### Listar todos
-```bash
+### Listar todos os alunos
+```
 GET /alunos
 Authorization: Bearer {token}
 ```
 
-#### Obter um aluno
-```bash
+### Obter um aluno
+```
 GET /alunos/{id}
 Authorization: Bearer {token}
 ```
 
-#### Criar aluno (Admin)
-```bash
+### Criar aluno
+```
 POST /alunos
 Authorization: Bearer {token}
 Content-Type: application/json
@@ -71,8 +94,8 @@ Content-Type: application/json
 }
 ```
 
-#### Atualizar aluno (Admin)
-```bash
+### Atualizar aluno
+```
 PUT /alunos/{id}
 Authorization: Bearer {token}
 Content-Type: application/json
@@ -84,36 +107,37 @@ Content-Type: application/json
 }
 ```
 
-#### Deletar aluno (Admin)
-```bash
+### Deletar aluno
+```
 DELETE /alunos/{id}
 Authorization: Bearer {token}
 ```
+- Deleta também todas as tarefas associadas
 
 ---
 
-### Tarefas (Requer JWT)
+## 📋 Tarefas (Requer JWT - Admin)
 
-#### Listar todas
-```bash
+### Listar todas as tarefas
+```
 GET /tarefas
 Authorization: Bearer {token}
 ```
 
-#### Obter uma tarefa
-```bash
+### Obter uma tarefa
+```
 GET /tarefas/{id}
 Authorization: Bearer {token}
 ```
 
-#### Listar tarefas de um aluno
-```bash
+### Listar tarefas de um aluno
+```
 GET /alunos/{aluno_id}/tarefas
 Authorization: Bearer {token}
 ```
 
-#### Criar tarefa (Admin)
-```bash
+### Criar tarefa
+```
 POST /tarefas
 Authorization: Bearer {token}
 Content-Type: application/json
@@ -121,12 +145,12 @@ Content-Type: application/json
 {
   "titulo": "Implementar API",
   "descricao": "Criar endpoints REST",
-  "aluno_id": "{aluno_id}"
+  "aluno_id": 1
 }
 ```
 
-#### Atualizar tarefa (Admin)
-```bash
+### Atualizar tarefa
+```
 PUT /tarefas/{id}
 Authorization: Bearer {token}
 Content-Type: application/json
@@ -138,17 +162,41 @@ Content-Type: application/json
 }
 ```
 
-#### Deletar tarefa (Admin)
-```bash
+### Deletar tarefa
+```
 DELETE /tarefas/{id}
 Authorization: Bearer {token}
 ```
 
 ---
 
-## Usar Collection no Insomnia
+## 📦 Usar Collection no Insomnia
 
 1. Abra o Insomnia
 2. Clique em **Import** → **From File**
 3. Selecione o arquivo `collection.json`
 4. As requisições estarão prontas para uso!
+
+### Variáveis de Ambiente
+- `base_url`: http://localhost:5000
+- `jwt_token`: Cole o token retornado pelo login
+- `aluno_id`: ID do aluno (retornado ao criar)
+- `tarefa_id`: ID da tarefa (retornado ao criar)
+
+---
+
+## 🏗️ Estrutura
+
+```
+Models:
+  - User: username, email, password_hash, role (admin/aluno)
+  - Aluno: nome, email, matricula
+  - Tarefa: titulo, descricao, aluno_id, completa
+```
+
+## 🔒 Segurança
+- ✅ Senhas hasheadas com bcrypt (werkzeug)
+- ✅ JWT para autenticação stateless
+- ✅ Autorização baseada em role (admin/aluno)
+- ✅ Validação de entrada em todas as rotas
+- ✅ SQLAlchemy ORM para proteção contra SQL injection
