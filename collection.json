@@ -1,0 +1,228 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-05-03T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "req_health",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "GET",
+      "url": "{{ _.base_url }}/health",
+      "name": "Health Check",
+      "description": "Verifica se o servidor está rodando"
+    },
+    {
+      "_id": "req_login",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "POST",
+      "url": "{{ _.base_url }}/login",
+      "name": "Login (Admin)",
+      "description": "Autentica com usuário admin",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+      }
+    },
+    {
+      "_id": "req_list_alunos",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "GET",
+      "url": "{{ _.base_url }}/alunos",
+      "name": "Listar Alunos",
+      "description": "Lista todos os alunos",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_get_aluno",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "GET",
+      "url": "{{ _.base_url }}/alunos/{{ _.aluno_id }}",
+      "name": "Obter Aluno",
+      "description": "Obtém um aluno específico",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_aluno",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "POST",
+      "url": "{{ _.base_url }}/alunos",
+      "name": "Criar Aluno",
+      "description": "Cria um novo aluno (Admin)",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"nome\": \"João Silva\",\n  \"email\": \"joao@example.com\",\n  \"matricula\": \"2024001\"\n}"
+      }
+    },
+    {
+      "_id": "req_update_aluno",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "PUT",
+      "url": "{{ _.base_url }}/alunos/{{ _.aluno_id }}",
+      "name": "Atualizar Aluno",
+      "description": "Atualiza um aluno (Admin)",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"nome\": \"João Santos\",\n  \"email\": \"joao.santos@example.com\"\n}"
+      }
+    },
+    {
+      "_id": "req_delete_aluno",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "DELETE",
+      "url": "{{ _.base_url }}/alunos/{{ _.aluno_id }}",
+      "name": "Deletar Aluno",
+      "description": "Deleta um aluno (Admin)",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_list_tarefas",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "GET",
+      "url": "{{ _.base_url }}/tarefas",
+      "name": "Listar Tarefas",
+      "description": "Lista todas as tarefas",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_get_tarefa",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "GET",
+      "url": "{{ _.base_url }}/tarefas/{{ _.tarefa_id }}",
+      "name": "Obter Tarefa",
+      "description": "Obtém uma tarefa específica",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_list_tarefas_aluno",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "GET",
+      "url": "{{ _.base_url }}/alunos/{{ _.aluno_id }}/tarefas",
+      "name": "Listar Tarefas do Aluno",
+      "description": "Lista tarefas de um aluno específico",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_create_tarefa",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "POST",
+      "url": "{{ _.base_url }}/tarefas",
+      "name": "Criar Tarefa",
+      "description": "Cria uma nova tarefa (Admin)",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titulo\": \"Implementar API\",\n  \"descricao\": \"Criar endpoints REST\",\n  \"aluno_id\": \"{{ _.aluno_id }}\"\n}"
+      }
+    },
+    {
+      "_id": "req_update_tarefa",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "PUT",
+      "url": "{{ _.base_url }}/tarefas/{{ _.tarefa_id }}",
+      "name": "Atualizar Tarefa",
+      "description": "Atualiza uma tarefa (Admin)",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titulo\": \"Implementar API REST\",\n  \"descricao\": \"Criar endpoints REST com Flask\",\n  \"completa\": false\n}"
+      }
+    },
+    {
+      "_id": "req_delete_tarefa",
+      "parentId": "wrk_mini_projeto",
+      "_type": "request",
+      "httpMethod": "DELETE",
+      "url": "{{ _.base_url }}/tarefas/{{ _.tarefa_id }}",
+      "name": "Deletar Tarefa",
+      "description": "Deleta uma tarefa (Admin)",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.jwt_token }}"
+        }
+      ]
+    }
+  ],
+  "workspace": {
+    "_id": "wrk_mini_projeto",
+    "name": "Mini Projeto - Alunos e Tarefas",
+    "description": "Workspace para testar a API de gestão de alunos e tarefas",
+    "scope": "design"
+  },
+  "environment": {
+    "_id": "env_mini_projeto",
+    "parentId": "wrk_mini_projeto",
+    "name": "Base Environment",
+    "data": {
+      "base_url": "http://localhost:5000",
+      "jwt_token": "COLE_TOKEN_JWT_AQUI",
+      "aluno_id": "COLE_ALUNO_ID_AQUI",
+      "tarefa_id": "COLE_TAREFA_ID_AQUI"
+    }
+  }
+}
