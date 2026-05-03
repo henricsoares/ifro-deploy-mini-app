@@ -25,6 +25,10 @@ else:
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+# Configurações JWT
+app.config["JWT_SECRET_KEY"] = "super-secret-key-change-in-production"
+app.config["SECRET_KEY"] = "super-secret-key-change-in-production"
+
 # Inicializar extensões
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
