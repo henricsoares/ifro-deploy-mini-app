@@ -20,11 +20,10 @@ if database_url:
     # Render usa DATABASE_URL no formato postgres://, que deve ser convertido para SQLAlchemy
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
-        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-    else:
-        app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-# Configurações JWT
-app.config["JWT_SECRET_KEY"] = "super-secret-key-change-in-production"
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Inicializar extensões
 db = SQLAlchemy(app)
