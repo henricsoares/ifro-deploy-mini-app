@@ -1,6 +1,8 @@
 # Mini Projeto - Gestão de Alunos e Tarefas
 
 API REST Flask com autenticação JWT, SQLAlchemy ORM, CRUD de alunos e tarefas.
+Repositório: https://github.com/henricsoares/ifro-deploy-mini-app
+Link do Render: https://ifro-deploy-mini-app.onrender.com (no modo grátis, a aplicação pode demorar 50 segundos ou mais para responder)
 
 ## Instalação
 
