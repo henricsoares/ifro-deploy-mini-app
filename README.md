@@ -11,10 +11,10 @@ pip install -r requirements.txt
 ## Executar
 
 ```bash
-python app.py
+gunicorn app:app
 ```
 
-A API estará disponível em `http://localhost:5000`
+A API estará disponível em `http://localhost:8000`
 
 ### Banco de Dados
 - **SQLite** para desenvolvimento local (`database.db`)
@@ -178,7 +178,7 @@ Authorization: Bearer {token}
 4. As requisições estarão prontas para uso!
 
 ### Variáveis de Ambiente
-- `base_url`: http://localhost:5000
+- `base_url`: http://localhost:8000
 - `jwt_token`: Cole o token retornado pelo login
 - `aluno_id`: ID do aluno (retornado ao criar)
 - `tarefa_id`: ID da tarefa (retornado ao criar)
