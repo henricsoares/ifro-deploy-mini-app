@@ -9,6 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
+from sqlalchemy.exc import IntegrityError
 
 # Inicializar Flask
 app = Flask(__name__)
@@ -111,14 +112,15 @@ class Tarefa(db.Model):
 
 
 def criar_admin():
-    """Cria usuário admin automaticamente se não existir"""
-    admin_existe = User.query.filter_by(username="admin").first()
-    if not admin_existe:
+    try:
         admin = User(username="admin", email="admin@example.com", role="admin")
         admin.set_password("admin123")
         db.session.add(admin)
         db.session.commit()
-        print("✓ Admin criado automaticamente (username: admin, password: admin123)")
+        print("✓ Admin criado")
+    except IntegrityError:
+        db.session.rollback()
+        print("✓ Admin já existe")
 
 
 # ========== ROTAS DE AUTENTICAÇÃO ==========
@@ -414,9 +416,10 @@ def health():
 
 # ========== INICIALIZAÇÃO DO BANCO ==========
 
-if __name__ == "__main__":
+
+def init_db():
     with app.app_context():
         db.create_all()
         criar_admin()
 
-    app.run(debug=True, port=5000)
+init_db()
